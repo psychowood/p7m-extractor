@@ -102,8 +102,16 @@ console.log(`✓ Bundle complete! Output: ${outputPath}`);
 
 function extractAppCode(originalScript) {
   // Remove the import statements and keep only the application code
-  return originalScript
+  let code = originalScript
     .replace(/^import \* as asn1js from 'https:\/\/esm\.sh\/asn1js@3';\n?/m, '')
     .replace(/^import \{ ContentInfo, SignedData \} from 'https:\/\/esm\.sh\/pkijs@3';\n?/m, '')
     .trim();
+
+  // Remove the TRANSLATIONS section including empty localeData and T declarations
+  code = code.replace(
+    /\/\/ ═.*\n\/\/ TRANSLATIONS \(loaded from JSON files\)\n\/\/ ═.*\nconst localeData = \{\};\nlet T = \{\};\n\nasync function loadLocales\(\) \{[\s\S]*?\n\}/,
+    ''
+  ).trim();
+
+  return code;
 }
