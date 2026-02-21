@@ -40,24 +40,31 @@ const enJsonPath = path.join(__dirname, 'src/locales/en.json');
 const itJson = JSON.parse(fs.readFileSync(itJsonPath, 'utf-8'));
 const enJson = JSON.parse(fs.readFileSync(enJsonPath, 'utf-8'));
 
-// Remove Google Fonts import and use system fonts
-html = html.replace(
+// Read CSS file
+const cssPath = path.join(__dirname, 'src/styles.css');
+let css = fs.readFileSync(cssPath, 'utf-8');
+
+// Remove Google Fonts import from CSS and replace fonts with system fallbacks
+css = css.replace(
   /@import url\('https:\/\/fonts\.googleapis\.com\/css2\?family=IBM\+Plex\+Mono:wght@300;400;500;600&family=IBM\+Plex\+Sans:wght@300;400;500&display=swap'\);?\n/,
   ''
 );
-
-// Update font families to use system fonts with fallbacks
-html = html.replace(
+css = css.replace(
   /font-family:'IBM Plex Mono',monospace/g,
   "font-family:'Menlo','Monaco','Courier New',monospace"
 );
-
-html = html.replace(
+css = css.replace(
   /font-family:'IBM Plex Sans',sans-serif/g,
   "font-family:-apple-system,'Segoe UI','Helvetica Neue',sans-serif"
 );
 
-// Find the script section and replace it
+// Replace external CSS link with inline style tag
+html = html.replace(
+  /<link rel="stylesheet" href="\.\/styles\.css">/,
+  `<style>\n${css}\n</style>`
+);
+
+// Find script section boundaries
 const scriptStart = html.indexOf('<script type="module">');
 const scriptEnd = html.lastIndexOf('</script>') + '</script>'.length;
 
