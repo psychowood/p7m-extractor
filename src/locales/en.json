@@ -13,7 +13,7 @@
   "multiInfo": "▾ info",
   "multiDl": "↓",
   "support": "⭐ If you find it useful, star the repo. Donations to support the project are welcome.",
-  "pnote": "🔒 All ASN.1/DER parsing happens locally via <strong>pkijs</strong> and <strong>asn1js</strong>. No data is sent to external servers. Supports embedded CAdES signatures (.p7m Italian format). <em>Detached</em> signatures cannot be extracted.",
+  "pnote": "🔒 All ASN.1/DER parsing happens locally via pkijs and asn1js. No data is sent to external servers. Supports embedded CAdES signatures (.p7m Italian format). Detached signatures cannot be extracted.",
   "log": {
     "file": "▸ FILE",
     "size": "▸ SIZE",

@@ -13,7 +13,7 @@
   "multiInfo": "▾ info",
   "multiDl": "↓",
   "support": "⭐ Se ti è utile, metti una stella al repo. Le donazioni sono le benvenute.",
-  "pnote": "🔒 Tutto il parsing ASN.1/DER avviene localmente tramite <strong>pkijs</strong> e <strong>asn1js</strong>. Il browser non invia dati a server esterni. Supporta firme CAdES embedded (formato .p7m italiano). Per firme <em>detached</em> l'estrazione non è possibile.",
+  "pnote": "🔒 Tutto il parsing ASN.1/DER avviene localmente tramite pkijs e asn1js. Il browser non invia dati a server esterni. Supporta firme CAdES embedded (formato .p7m italiano). Per firme detached l'estrazione non è possibile.",
   "log": {
     "file": "▸ FILE",
     "size": "▸ DIMENSIONE",
