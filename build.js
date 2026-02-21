@@ -30,9 +30,15 @@ const bundleCode = result.outputFiles[0].text;
 fs.unlinkSync(tempFile);
 
 // Read source HTML
-const srcPath = path.join(__dirname, 'src-index.html');
+const srcPath = path.join(__dirname, 'src/index.html');
 const distPath = path.join(__dirname, 'dist');
 let html = fs.readFileSync(srcPath, 'utf-8');
+
+// Read and load locale JSON files
+const itJsonPath = path.join(__dirname, 'src/locales/it.json');
+const enJsonPath = path.join(__dirname, 'src/locales/en.json');
+const itJson = JSON.parse(fs.readFileSync(itJsonPath, 'utf-8'));
+const enJson = JSON.parse(fs.readFileSync(enJsonPath, 'utf-8'));
 
 // Remove Google Fonts import and use system fonts
 html = html.replace(
@@ -63,6 +69,21 @@ if (scriptStart === -1 || scriptEnd === -1) {
 const newScript = `<script>
 // Bundled asn1js and pkijs - all dependencies inline
 ${bundleCode}
+// Inline locale data
+const localeData = {
+  it: ${JSON.stringify(itJson)},
+  en: ${JSON.stringify(enJson)}
+};
+// Inline loadLocales function
+async function loadLocales() {
+  T = {
+    it: localeData.it,
+    en: localeData.en,
+  };
+  lang = detectLang();
+  t = T[lang];
+  applyLang(lang);
+}
 // Application code
 ${extractAppCode(html.substring(scriptStart + '<script type="module">'.length, scriptEnd - '</script>'.length))}
 </script>`;
