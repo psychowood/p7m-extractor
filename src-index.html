@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P7M Extractor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg:#0d0f0e; --surface:#141716; --border:#252825; --border-active:#3a3f3b;
+  --text:#e2e8e3; --text-dim:#6b756d; --text-muted:#3d453e;
+  --accent:#4ade80; --accent-dim:#166534; --accent-glow:rgba(74,222,128,0.12);
+  --error:#f87171; --warn:#fbbf24; --surface2:#111411;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 24px 80px}
+body::before{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+  pointer-events:none;z-index:100}
+header{width:100%;max-width:680px;margin-bottom:48px}
+.htag{font-size:10px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;
+  margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.htag::before{content:'';display:inline-block;width:6px;height:6px;background:var(--accent);
+  border-radius:50%;box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-size:clamp(22px,4vw,30px);font-weight:600;letter-spacing:-.02em;line-height:1.1}
+h1 span{color:var(--accent)}
+.subtitle{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-dim);
+  margin-top:12px;line-height:1.6;font-weight:300}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;
+  width:100%;max-width:680px;overflow:hidden}
+.card-hdr{padding:12px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);letter-spacing:.1em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border-active)}
+
+/* ── Drop zone ── */
+#dz{padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;
+  cursor:pointer;transition:all .2s}
+#dz.ov{background:var(--accent-glow)}
+#dz.ov .di{color:var(--accent);transform:translateY(-4px)}
+.di{font-size:40px;color:var(--text-muted);transition:all .2s;user-select:none}
+.dt{font-size:13px;color:var(--text-dim);text-align:center}
+.dt strong{color:var(--text);font-weight:500}
+.dh{font-size:10px;color:var(--text-muted);letter-spacing:.08em}
+.btn-up{margin-top:8px;padding:8px 20px;background:transparent;border:1px solid var(--border-active);
+  color:var(--text-dim);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;
+  cursor:pointer;border-radius:2px;transition:all .15s;text-transform:uppercase}
+.btn-up:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+#fi{display:none}
+
+/* ── Log ── */
+#log{display:none}
+.ll{padding:8px 20px;font-size:12px;display:flex;align-items:flex-start;
+  gap:12px;border-bottom:1px solid var(--border);animation:fadein .2s}
+@keyframes fadein{from{opacity:0;transform:translateX(-4px)}to{opacity:1}}
+.lp{color:var(--text-muted);flex-shrink:0;padding-top:1px}
+.ll.ok .lp{color:var(--accent)}.ll.err .lp{color:var(--error)}.ll.warn .lp{color:var(--warn)}
+.ll.err .lm{color:var(--error)}
+.lm{line-height:1.5}
+
+/* ── Download row ── */
+#ds{display:none;padding:24px 20px;border-top:1px solid var(--border);flex-direction:column;gap:16px}
+.dl-lbl{font-size:10px;letter-spacing:.15em;color:var(--text-muted);text-transform:uppercase}
+.dr{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.fp{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg);
+  border:1px solid var(--border);border-radius:2px;flex:1;min-width:0}
+.fn{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fsz{font-size:10px;color:var(--text-muted);flex-shrink:0}
+.btn-dl{padding:10px 24px;background:var(--accent);border:none;color:#0a0f0a;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .15s;flex-shrink:0;
+  box-shadow:0 0 20px rgba(74,222,128,.2)}
+.btn-dl:hover{background:#86efac;box-shadow:0 0 30px rgba(74,222,128,.3)}
+.btn-rst{background:transparent;border:none;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;
+  font-size:10px;letter-spacing:.1em;cursor:pointer;text-transform:uppercase;padding:4px 0;
+  text-decoration:underline;text-decoration-color:var(--border-active);transition:color .15s}
+.btn-rst:hover{color:var(--text-dim)}
+
+/* ── Signature details panel ── */
+.sig-panel{border-top:1px solid var(--border)}
+.sig-toggle{
+  width:100%;padding:11px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:transparent;border:none;cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--text-dim);transition:background .15s, color .15s;
+}
+.sig-toggle:hover{background:var(--accent-glow);color:var(--text)}
+.sig-toggle[aria-expanded="true"]{color:var(--accent)}
+.sig-tl{display:flex;align-items:center;gap:8px}
+.sig-chev{display:inline-block;transition:transform .2s ease;font-size:9px;color:var(--text-muted)}
+.sig-toggle[aria-expanded="true"] .sig-chev{transform:rotate(90deg)}
+.sig-body{display:none;padding:4px 20px 20px;animation:fadein .15s}
+
+/* ── Details grid ── */
+.det-section{margin-bottom:18px}
+.det-section:last-child{margin-bottom:0}
+.det-head{
+  font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted);
+  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;
+}
+.det-grid{display:grid;grid-template-columns:160px 1fr}
+.det-k{font-size:11px;color:var(--text-muted);padding:4px 0}
+.det-v{font-size:11px;color:var(--text);padding:4px 0 4px 12px;word-break:break-all;line-height:1.5}
+.det-v.mono{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace}
+.det-v.ok{color:var(--accent)}
+.det-v.warn{color:var(--warn)}
+.det-v.err{color:var(--error)}
+.dbadge{
+  display:inline-block;font-size:9px;padding:1px 6px;border-radius:2px;
+  letter-spacing:.05em;vertical-align:middle;margin-left:6px;
+  font-family:'IBM Plex Mono',monospace;
+}
+.dbadge.ok{background:#0d2013;color:var(--accent);border:1px solid var(--accent-dim)}
+.dbadge.warn{background:#1a180d;color:var(--warn);border:1px solid #4a3810}
+.dbadge.err{background:#1a0d0d;color:var(--error);border:1px solid #4a1515}
+.serial-val{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
+  cursor:help;border-bottom:1px dashed var(--border-active);
+}
+.signer-sep{
+  margin:16px 0;border:none;border-top:1px dashed var(--border);
+}
+.no-sig{font-size:11px;color:var(--text-muted);padding:8px 0}
+
+/* ── Multi-file list ── */
+#ma{display:none;border-top:1px solid var(--border)}
+.mh{padding:10px 20px;font-size:10px;letter-spacing:.12em;color:var(--text-muted);
+  text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.ml{list-style:none}
+.mi{display:flex;align-items:center;gap:8px;padding:9px 20px;
+  border-bottom:1px solid var(--border);font-size:12px}
+.mn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim);min-width:0}
+.ms{font-size:10px;padding:2px 6px;border-radius:2px;flex-shrink:0;white-space:nowrap}
+.sp{color:var(--text-muted)}.so{color:var(--accent)}.se{color:var(--error)}
+.btn-da{padding:8px 20px;background:transparent;border:1px solid var(--accent-dim);color:var(--accent);
+  font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .15s}
+.btn-da:hover{background:var(--accent-glow)}
+.btn-da:disabled{opacity:.4;cursor:not-allowed}
+/* small action buttons in multi list */
+.btn-exp,.btn-dl-sm{
+  flex-shrink:0;background:transparent;border:1px solid var(--border);
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.08em;
+  padding:3px 9px;cursor:pointer;border-radius:2px;transition:all .15s;
+  text-transform:uppercase;white-space:nowrap;
+}
+.btn-exp{color:var(--text-muted)}
+.btn-exp:hover{border-color:var(--border-active);color:var(--text-dim)}
+.btn-exp.open{border-color:var(--accent-dim);color:var(--accent);background:var(--accent-glow)}
+.btn-dl-sm{color:var(--accent);border-color:var(--accent-dim)}
+.btn-dl-sm:hover{background:var(--accent-glow)}
+/* accordion row */
+.mi-acc{display:none;padding:12px 20px 18px 28px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.mi-acc.open{display:block;animation:fadein .15s}
+.mi-acc .det-grid{max-width:100%}
+
+/* ── Note & Footer ── */
+.pnote{max-width:680px;margin-top:32px;padding:16px 20px;border:1px solid var(--border);
+  border-radius:2px;font-size:11px;color:var(--text-muted);line-height:1.6;display:flex;gap:12px}
+footer{width:100%;max-width:680px;margin-top:36px;display:flex;align-items:center;
+  justify-content:flex-end;gap:6px;padding-top:16px;border-top:1px solid var(--border)}
+.lang-label{font-size:10px;color:var(--text-muted);letter-spacing:.12em;text-transform:uppercase;margin-right:4px}
+.lang-btn{display:inline-flex;align-items:center;padding:4px 12px;background:transparent;
+  border:1px solid var(--border);color:var(--text-muted);font-family:'IBM Plex Mono',monospace;
+  font-size:11px;letter-spacing:.1em;cursor:pointer;border-radius:2px;text-decoration:none;transition:all .15s}
+.lang-btn:hover{border-color:var(--border-active);color:var(--text-dim)}
+.lang-btn.active{border-color:var(--accent-dim);color:var(--accent);background:var(--accent-glow);pointer-events:none}
+.lang-sep{color:var(--border-active);user-select:none}
+.copy-link{font-size:10px;color:var(--text-muted);letter-spacing:.1em;text-decoration:none;
+  transition:color .15s;}
+.copy-link:hover{color:var(--text-dim)}
+.footer-support{
+  flex:1;text-align:center;font-size:10px;color:var(--text-muted);
+  letter-spacing:.04em;line-height:1.5;padding:0 16px;
+}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border-active);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htag" id="htag"></div>
+  <h1>P7M <span>Extractor</span></h1>
+  <p class="subtitle" id="subtitle"></p>
+</header>
+
+<div class="card">
+  <div class="card-hdr"><div class="dot"></div><span>CMS SignedData · pkijs + asn1js</span></div>
+  <div id="dz">
+    <div class="di">⬡</div>
+    <div class="dt" id="dz-label"></div>
+    <div class="dh">PKCS#7 · CMS · BER/DER encoded</div>
+    <button class="btn-up" id="bu"></button>
+    <input type="file" id="fi" accept=".p7m" multiple>
+  </div>
+  <div id="log"></div>
+  <div id="ds">
+    <div class="dl-lbl" id="dl-label"></div>
+    <div class="dr">
+      <div class="fp"><span>📄</span><span class="fn" id="on"></span><span class="fsz" id="os"></span></div>
+      <button class="btn-dl" id="bd"></button>
+    </div>
+    <button class="btn-rst" id="br"></button>
+  </div>
+  <!-- Single-file signature details injected here -->
+  <div id="sig-single"></div>
+  <div id="ma">
+    <div class="mh"><span id="mc"></span><button class="btn-da" id="bda" disabled></button></div>
+    <ul class="ml" id="ml"></ul>
+  </div>
+</div>
+
+<div class="pnote" id="pnote"></div>
+
+<footer>
+  <a class="copy-link" href="https://github.com/psychowood/p7m-extractor" target="_blank" rel="noopener">
+    © psychowood
+  </a>
+  <span class="footer-support" id="footer-support"></span>
+  <span class="lang-label">🌐</span>
+  <a class="lang-btn" id="lang-it" href="#it">IT</a>
+  <span class="lang-sep">/</span>
+  <a class="lang-btn" id="lang-en" href="#en">EN</a>
+</footer>
+
+<script type="module">
+import * as asn1js from 'https://esm.sh/asn1js@3';
+import { ContentInfo, SignedData } from 'https://esm.sh/pkijs@3';
+const OID = {
+  // Digest algorithms
+  '1.2.840.113549.2.5':    'MD5',
+  '1.3.14.3.2.26':         'SHA-1',
+  '2.16.840.1.101.3.4.2.1':'SHA-256',
+  '2.16.840.1.101.3.4.2.2':'SHA-384',
+  '2.16.840.1.101.3.4.2.3':'SHA-512',
+  // Signature algorithms
+  '1.2.840.113549.1.1.1':  'RSA',
+  '1.2.840.113549.1.1.5':  'RSA / SHA-1',
+  '1.2.840.113549.1.1.11': 'RSA / SHA-256',
+  '1.2.840.113549.1.1.12': 'RSA / SHA-384',
+  '1.2.840.113549.1.1.13': 'RSA / SHA-512',
+  '1.2.840.10045.4.3.2':   'ECDSA / SHA-256',
+  '1.2.840.10045.4.3.3':   'ECDSA / SHA-384',
+  '1.2.840.10045.4.3.4':   'ECDSA / SHA-512',
+  '1.2.840.10045.2.1':     'EC',
+  // EC curves
+  '1.2.840.10045.3.1.7':   'P-256',
+  '1.3.132.0.34':           'P-384',
+  '1.3.132.0.35':           'P-521',
+  // DN attributes
+  '2.5.4.3':  'CN',  '2.5.4.4': 'SN', '2.5.4.42': 'GN',
+  '2.5.4.5':  'serialNumber',
+  '2.5.4.6':  'C',   '2.5.4.7':  'L', '2.5.4.8':  'ST',
+  '2.5.4.10': 'O',   '2.5.4.11': 'OU',
+  '1.2.840.113549.1.9.1': 'email',
+  // Signed attribute OIDs
+  '1.2.840.113549.1.9.5': 'signingTime',
+  '1.2.840.113549.1.9.3': 'contentType',
+  // Content types
+  '1.2.840.113549.1.7.1': 'data',
+  '1.2.840.113549.1.7.2': 'signedData',
+};
+const EC_BITS = {
+  '1.2.840.10045.3.1.7': 256,
+  '1.3.132.0.34': 384,
+  '1.3.132.0.35': 521,
+};
+function oidName(oid) { return oid ? (OID[oid] ?? oid) : '—'; }
+
+// ═══════════════════════════════════════════════════════════
+// TRANSLATIONS
+// ═══════════════════════════════════════════════════════════
+const T = {
+  it: {
+    locale: 'it-IT',
+    tagline: 'Client-side · Nessun server · Nessun upload',
+    subtitle: 'Rimuove la firma digitale CMS/PKCS#7 dai file .p7m ed estrae il documento originale.<br>Tutto il processing avviene nel browser — nessun dato viene trasmesso.',
+    dropLabel: '<strong>Trascina uno o più file .p7m</strong><br>oppure clicca per selezionarli',
+    selectBtn: 'Seleziona file',
+    extractedLabel: 'File estratto',
+    downloadBtn: '↓ Scarica',
+    newFileBtn: '← Nuovo file',
+    downloadAllBtn: '↓ Scarica tutti',
+    retryBtn: '← Riprova',
+    detailsBtn: '🔏 Dettagli firma',
+    multiInfo: '▾ info',
+    multiDl: '↓',
+    support: '⭐ Se ti è utile, metti una stella al repo. Le donazioni sono le benvenute.',
+    pnote: '🔒 Tutto il parsing ASN.1/DER avviene localmente tramite <strong>pkijs</strong> e <strong>asn1js</strong>. Il browser non invia dati a server esterni. Supporta firme CAdES embedded (formato .p7m italiano). Per firme <em>detached</em> l\'estrazione non è possibile.',
+    log: {
+      file:'▸ FILE', size:'▸ DIMENSIONE', parse:'▸ ANALISI',
+      parseMsg:'Lettura struttura ASN.1/BER...',
+      valid:'✓ FIRMA', validMsg:'Struttura CMS SignedData valida',
+      type:'✓ TIPO', bytes:'✓ BYTES', ext:'estratti',
+      hint:'⚠ SUGGERIMENTO', hintMsg:'Verifica che il file sia un .p7m con firma embedded (non detached).',
+    },
+    multiProcessing: n => `Elaborazione di ${n} file…`,
+    multiResult:   (ok,tot) => `${ok}/${tot} estratti correttamente`,
+    multiError: 'errore',
+    det: {
+      signerSection: 'Firmatario',
+      certSection:   'Certificato',
+      sigSection:    'Firma',
+      name:    'Nome (CN)',
+      org:     'Organizzazione',
+      orgUnit: 'Unità org.',
+      country: 'Paese',
+      email:   'Email',
+      pid:     'Cod. fiscale / ID',
+      issuedBy:'Emesso da',
+      issOrg:  'Ente emittente',
+      validFrom:'Valido dal',
+      validTo:  'Valido fino al',
+      serial:   'Nr. seriale cert.',
+      pubKey:   'Chiave pubblica',
+      signedAt: 'Data firma',
+      digest:   'Algoritmo digest',
+      sigAlgo:  'Algoritmo firma',
+      sigCount: 'Nr. firmatari',
+      ctype:    'Tipo contenuto',
+      noInfo:   'Nessuna informazione sul firmatario disponibile.',
+      expired:  'SCADUTO',
+      notYet:   'NON ANCORA VALIDO',
+      valid:    'VALIDO',
+      signer:   n => n > 1 ? `Firmatario ${n}` : '',
+    },
+    err: {
+      asnFail: 'Parsing ASN.1 fallito: struttura non valida o file corrotto.',
+      notCI:   m => `Non è un ContentInfo CMS valido: ${m}`,
+      wrongType:oid=>`ContentType inatteso: ${oid}. Atteso SignedData (1.2.840.113549.1.7.2).`,
+      sdFail:  m => `Parsing SignedData fallito: ${m}`,
+      noECI:   'encapContentInfo assente nella struttura SignedData.',
+      detached:'eContent assente: firma detached. Il documento originale non è contenuto nel .p7m.',
+      empty:   'Contenuto estratto vuoto. Potrebbe essere una firma detached.',
+      exFail:  m => `Impossibile estrarre il contenuto: ${m}`,
+      unex:    m => `Errore inatteso: ${m}`,
+    }
+  },
+  en: {
+    locale: 'en-GB',
+    tagline: 'Client-side · No server · No upload',
+    subtitle: 'Strips the CMS/PKCS#7 digital signature from .p7m files and extracts the original document.<br>All processing happens in the browser — no data is ever transmitted.',
+    dropLabel: '<strong>Drop one or more .p7m files here</strong><br>or click to select them',
+    selectBtn: 'Select files',
+    extractedLabel: 'Extracted file',
+    downloadBtn: '↓ Download',
+    newFileBtn: '← New file',
+    downloadAllBtn: '↓ Download all',
+    retryBtn: '← Try again',
+    detailsBtn: '🔏 Signature details',
+    multiInfo: '▾ info',
+    multiDl: '↓',
+    support: '⭐ If you find it useful, star the repo. Donations to support the project are welcome.',
+    pnote: '🔒 All ASN.1/DER parsing happens locally via <strong>pkijs</strong> and <strong>asn1js</strong>. No data is sent to external servers. Supports embedded CAdES signatures (.p7m Italian format). <em>Detached</em> signatures cannot be extracted.',
+    log: {
+      file:'▸ FILE', size:'▸ SIZE', parse:'▸ PARSE',
+      parseMsg:'Reading ASN.1/BER structure…',
+      valid:'✓ SIGNED', validMsg:'Valid CMS SignedData structure',
+      type:'✓ TYPE', bytes:'✓ BYTES', ext:'extracted',
+      hint:'⚠ HINT', hintMsg:'Make sure the file is a .p7m with an embedded (not detached) signature.',
+    },
+    multiProcessing: n => `Processing ${n} file${n===1?'':'s'}…`,
+    multiResult:   (ok,tot) => `${ok}/${tot} successfully extracted`,
+    multiError: 'error',
+    det: {
+      signerSection: 'Signer',
+      certSection:   'Certificate',
+      sigSection:    'Signature',
+      name:    'Name (CN)',
+      org:     'Organization',
+      orgUnit: 'Org. unit',
+      country: 'Country',
+      email:   'Email',
+      pid:     'Tax code / ID',
+      issuedBy:'Issued by',
+      issOrg:  'Issuing org.',
+      validFrom:'Valid from',
+      validTo:  'Valid to',
+      serial:   'Cert. serial no.',
+      pubKey:   'Public key',
+      signedAt: 'Signed at',
+      digest:   'Digest algorithm',
+      sigAlgo:  'Signature algorithm',
+      sigCount: 'Signer count',
+      ctype:    'Content type',
+      noInfo:   'No signer information available.',
+      expired:  'EXPIRED',
+      notYet:   'NOT YET VALID',
+      valid:    'VALID',
+      signer:   n => n > 1 ? `Signer ${n}` : '',
+    },
+    err: {
+      asnFail: 'ASN.1 parsing failed: invalid structure or corrupted file.',
+      notCI:   m => `Not a valid CMS ContentInfo: ${m}`,
+      wrongType:oid=>`Unexpected ContentType: ${oid}. Expected SignedData (1.2.840.113549.1.7.2).`,
+      sdFail:  m => `SignedData parsing failed: ${m}`,
+      noECI:   'encapContentInfo missing from SignedData structure.',
+      detached:'eContent missing: detached signature. The original document is not embedded in the .p7m.',
+      empty:   'Extracted content is empty. The file may use a detached signature.',
+      exFail:  m => `Cannot extract content: ${m}`,
+      unex:    m => `Unexpected error: ${m}`,
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// DOM HELPER  (must come first — used by applyLang below)
+// ═══════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════════════════════════════════════
+// LANGUAGE ENGINE
+// ═══════════════════════════════════════════════════════════
+function detectLang() {
+  const h = window.location.hash.replace('#','').toLowerCase();
+  if (h === 'it' || h === 'en') return h;
+  return (navigator.language || 'it').toLowerCase().startsWith('it') ? 'it' : 'en';
+}
+let lang = detectLang(), t = T[lang];
+
+function applyLang(l) {
+  lang = l; t = T[l];
+  document.documentElement.lang = l;
+  $('htag').textContent        = t.tagline;
+  $('subtitle').innerHTML      = t.subtitle;
+  $('dz-label').innerHTML      = t.dropLabel;
+  $('bu').textContent          = t.selectBtn;
+  $('dl-label').textContent    = t.extractedLabel;
+  $('bd').textContent          = t.downloadBtn;
+  $('br').textContent          = t.newFileBtn;
+  $('bda').textContent         = t.downloadAllBtn;
+  $('pnote').innerHTML         = t.pnote;
+  $('lang-it').classList.toggle('active', l === 'it');
+  $('lang-en').classList.toggle('active', l === 'en');
+  $('footer-support').textContent = t.support;
+  // Refresh single-file panel toggle label if present
+  const togLabel = document.querySelector('#sig-single .sig-tl-txt');
+  if (togLabel) togLabel.textContent = t.detailsBtn;
+}
+window.addEventListener('hashchange', () => {
+  const h = window.location.hash.replace('#','').toLowerCase();
+  if (h === 'it' || h === 'en') applyLang(h);
+});
+applyLang(lang);
+
+// ═══════════════════════════════════════════════════════════
+// DOM REFS & EVENTS
+// ═══════════════════════════════════════════════════════════
+const dz=$('dz'), fi=$('fi'), bu=$('bu'), logEl=$('log'),
+  ds=$('ds'), elOn=$('on'), elOs=$('os'), bd=$('bd'), br=$('br'),
+  ma=$('ma'), mc=$('mc'), ml=$('ml'), bda=$('bda'),
+  sigSingle=$('sig-single');
+
+let blob=null, outName='';
+
+bu.onclick   = () => fi.click();
+fi.onchange  = e  => go(e.target.files);
+bd.onclick   = () => blob && dlFile(blob, outName);
+br.onclick   = reset;
+dz.ondragover  = e => { e.preventDefault(); dz.classList.add('ov'); };
+dz.ondragleave = () => dz.classList.remove('ov');
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove('ov'); go(e.dataTransfer.files); };
+
+// ═══════════════════════════════════════════════════════════
+// UI FLOW
+// ═══════════════════════════════════════════════════════════
+function reset() {
+  logEl.innerHTML=''; logEl.style.display='none';
+  ds.style.display='none'; sigSingle.innerHTML='';
+  ma.style.display='none'; ml.innerHTML='';
+  dz.style.display='flex'; fi.value='';
+  blob=null; outName=''; bda.disabled=true; bda.onclick=null;
+}
+
+async function go(files) {
+  if (!files?.length) return;
+  files.length === 1 ? await single(files[0]) : await multi([...files]);
+}
+
+async function single(file) {
+  dz.style.display='none'; logEl.style.display='block';
+  logEl.innerHTML=''; ds.style.display='none'; sigSingle.innerHTML='';
+  addLog('info', t.log.file, file.name);
+  addLog('info', t.log.size, fmt(file.size));
+  try {
+    const buf = await file.arrayBuffer();
+    addLog('info', t.log.parse, t.log.parseMsg);
+    const r = extract(buf);
+    if (r.error) throw new Error(r.error);
+    addLog('ok', t.log.valid,  t.log.validMsg);
+    addLog('ok', t.log.type,   oidName(r.contentType));
+    addLog('ok', t.log.bytes,  fmt(r.contentBuffer.byteLength) + ' ' + t.log.ext);
+    outName = origName(file.name);
+    blob    = new Blob([r.contentBuffer]);
+    elOn.textContent = outName;
+    elOs.textContent = fmt(r.contentBuffer.byteLength);
+    $('dl-label').textContent = t.extractedLabel;
+    bd.textContent = t.downloadBtn;
+    br.textContent = t.newFileBtn;
+    ds.style.display = 'flex';
+    // Inject details panel (auto-expanded)
+    if (r.details) {
+      sigSingle.innerHTML = buildSigPanel(r.details, true);
+      hookToggle(sigSingle.querySelector('.sig-toggle'));
+    }
+  } catch(e) {
+    addLog('err','✗ ERR', e.message || String(e));
+    addLog('warn', t.log.hint, t.log.hintMsg);
+    setTimeout(() => {
+      const b = document.createElement('button');
+      b.className='btn-rst'; b.style.cssText='display:block;margin:12px 20px';
+      b.textContent=t.retryBtn; b.onclick=reset;
+      logEl.appendChild(b);
+    }, 300);
+  }
+}
+
+async function multi(files) {
+  dz.style.display='none'; ma.style.display='block'; ml.innerHTML='';
+  bda.textContent = t.downloadAllBtn;
+  mc.textContent  = t.multiProcessing(files.length);
+  const results = [];
+
+  for (const file of files) {
+    const statusId = uid(), accId = uid();
+    // Main row
+    const li = document.createElement('li'); li.className='mi';
+    li.innerHTML = `<span class="mn" title="${esc(file.name)}">${esc(file.name)}</span>
+      <span class="ms sp" id="${statusId}">⋯</span>`;
+    ml.appendChild(li);
+    // Accordion row (initially hidden)
+    const accLi = document.createElement('li'); accLi.className='mi-acc'; accLi.id=accId;
+    ml.appendChild(accLi);
+
+    const sel = document.getElementById(statusId);
+    try {
+      const buf = await file.arrayBuffer();
+      const r   = extract(buf);
+      if (r.error) throw new Error(r.error);
+
+      results.push({ name: origName(file.name), buffer: r.contentBuffer });
+      sel.textContent = '✓ ' + fmt(r.contentBuffer.byteLength);
+      sel.className   = 'ms so';
+
+      // Download button
+      const dlBtn = document.createElement('button');
+      dlBtn.className='btn-dl-sm'; dlBtn.textContent=t.multiDl;
+      dlBtn.title=origName(file.name);
+      dlBtn.onclick = () => dlFile(new Blob([r.contentBuffer]), origName(file.name));
+
+      // Info toggle button
+      const expBtn = document.createElement('button');
+      expBtn.className='btn-exp'; expBtn.textContent=t.multiInfo;
+      expBtn.onclick = () => {
+        const open = accLi.classList.toggle('open');
+        expBtn.classList.toggle('open', open);
+        expBtn.textContent = open ? '▴ info' : t.multiInfo;
+        if (open && !accLi.dataset.rendered) {
+          accLi.innerHTML = r.details ? buildDetailsHTML(r.details) : `<p class="no-sig">${esc(t.det.noInfo)}</p>`;
+          accLi.dataset.rendered = '1';
+        }
+      };
+
+      li.appendChild(dlBtn);
+      li.appendChild(expBtn);
+    } catch(e) {
+      sel.textContent = '✗ ' + t.multiError;
+      sel.className   = 'ms se';
+      sel.title       = e.message;
+    }
+  }
+
+  mc.textContent = t.multiResult(results.length, files.length);
+  if (results.length > 0) {
+    bda.disabled = false;
+    bda.onclick  = () => results.forEach((r,i) => setTimeout(() => dlFile(new Blob([r.buffer]), r.name), i*150));
+  }
+  const footLi = document.createElement('li');
+  footLi.style.cssText = 'padding:12px 20px;border-top:1px solid var(--border)';
+  footLi.innerHTML = `<button class="btn-rst">${esc(t.newFileBtn)}</button>`;
+  footLi.querySelector('button').onclick = reset;
+  ml.appendChild(footLi);
+}
+
+// ═══════════════════════════════════════════════════════════
+// DETAILS RENDERING
+// ═══════════════════════════════════════════════════════════
+function buildSigPanel(details, autoExpand=false) {
+  return `<div class="sig-panel">
+    <button class="sig-toggle" aria-expanded="${autoExpand}">
+      <div class="sig-tl">
+        <span class="sig-tl-txt">${esc(t.detailsBtn)}</span>
+      </div>
+      <span class="sig-chev">▶</span>
+    </button>
+    <div class="sig-body" style="display:${autoExpand?'block':'none'}">
+      ${buildDetailsHTML(details)}
+    </div>
+  </div>`;
+}
+
+function hookToggle(btn) {
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    const open = this.getAttribute('aria-expanded') !== 'true';
+    this.setAttribute('aria-expanded', String(open));
+    this.nextElementSibling.style.display = open ? 'block' : 'none';
+  });
+}
+
+function buildDetailsHTML(details) {
+  const d   = t.det;
+  const now = new Date();
+  if (!details?.signers?.length) return `<p class="no-sig">${esc(d.noInfo)}</p>`;
+
+  let html = '';
+  details.signers.forEach((si, idx) => {
+    if (idx > 0) html += '<hr class="signer-sep">';
+
+    const lbl = d.signer(idx + 1);
+    if (lbl) html += `<div class="det-head" style="margin-bottom:12px;font-size:10px">${esc(lbl)}</div>`;
+
+    const c = si.cert;
+
+    // ── Signer ──────────────────────────────────────────
+    html += `<div class="det-section"><div class="det-head">— ${esc(d.signerSection)}</div><div class="det-grid">`;
+    if (c) {
+      if (c.cn)     html += row(d.name,    esc(c.cn));
+      if (c.o)      html += row(d.org,     esc(c.o));
+      if (c.ou)     html += row(d.orgUnit, esc(c.ou));
+      if (c.c)      html += row(d.country, esc(c.c));
+      if (c.email)  html += row(d.email,   esc(c.email));
+      if (c.pid)    html += row(d.pid,     `<span class="mono">${esc(c.pid)}</span>`, 'mono');
+    } else {
+      html += `<div class="det-k"></div><div class="det-v" style="color:var(--text-muted)">${esc(d.noInfo)}</div>`;
+    }
+    html += '</div></div>';
+
+    // ── Certificate ──────────────────────────────────────
+    if (c) {
+      const expired  = c.validTo  && now > c.validTo;
+      const notYet   = c.validFrom && now < c.validFrom;
+      const badge    = expired
+        ? `<span class="dbadge err">${esc(d.expired)}</span>`
+        : notYet
+          ? `<span class="dbadge warn">${esc(d.notYet)}</span>`
+          : `<span class="dbadge ok">${esc(d.valid)}</span>`;
+
+      html += `<div class="det-section"><div class="det-head">— ${esc(d.certSection)}</div><div class="det-grid">`;
+      if (c.issuerCN)                html += row(d.issuedBy, esc(c.issuerCN));
+      if (c.issuerO && c.issuerO !== c.issuerCN) html += row(d.issOrg, esc(c.issuerO));
+      if (c.validFrom)               html += row(d.validFrom, fmtDate(c.validFrom));
+      if (c.validTo)                 html += row(d.validTo,   fmtDate(c.validTo) + badge);
+      if (c.serialHex) {
+        const short = c.serialHex.length > 32 ? c.serialHex.slice(0,32)+'…' : c.serialHex;
+        html += row(d.serial, `<span class="serial-val" title="${esc(c.serialHex)}">${esc(short)}</span>`);
+      }
+      if (c.keyDisplay) html += row(d.pubKey, esc(c.keyDisplay));
+      html += '</div></div>';
+    }
+
+    // ── Signature ────────────────────────────────────────
+    html += `<div class="det-section"><div class="det-head">— ${esc(d.sigSection)}</div><div class="det-grid">`;
+    if (si.signingTime)  html += row(d.signedAt, fmtDateTime(si.signingTime));
+    if (si.digestAlgo)   html += row(d.digest,   esc(si.digestAlgo));
+    if (si.sigAlgo)      html += row(d.sigAlgo,  esc(si.sigAlgo));
+    html += row(d.sigCount, String(details.signers.length));
+    if (details.contentType) html += row(d.ctype, esc(oidName(details.contentType)));
+    html += '</div></div>';
+  });
+
+  return html;
+}
+
+function row(k, vHtml) {
+  return `<div class="det-k">${esc(k)}</div><div class="det-v">${vHtml}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SIGNATURE DETAILS EXTRACTION
+// ═══════════════════════════════════════════════════════════
+function extractDetails(sd) {
+  const details = {
+    signers:     [],
+    contentType: sd.encapContentInfo?.eContentType ?? null,
+  };
+  for (const si of (sd.signerInfos ?? [])) {
+    details.signers.push({
+      digestAlgo:  oidName(si.digestAlgorithm?.algorithmId),
+      sigAlgo:     oidName(si.signatureAlgorithm?.algorithmId),
+      signingTime: readSigningTime(si),
+      cert:        readCert(matchCert(si, sd.certificates)),
+    });
+  }
+  return details;
+}
+
+function readSigningTime(si) {
+  const TIME_OID = '1.2.840.113549.1.9.5';
+  try {
+    for (const attr of (si.signedAttrs?.attributes ?? [])) {
+      if (attr.type !== TIME_OID) continue;
+      const v = attr.values?.[0];
+      if (!v) continue;
+      if (typeof v.toDate === 'function') return v.toDate();
+      if (typeof v.getValue === 'function') { const g = v.getValue(); if (g instanceof Date) return g; }
+      if (v.value instanceof Date) return v.value;
+      if (typeof v.value === 'string') { const d = new Date(v.value); if (!isNaN(d)) return d; }
+    }
+  } catch(e) {}
+  return null;
+}
+
+function matchCert(si, certs) {
+  if (!certs?.length) return null;
+  try {
+    // Try IssuerAndSerialNumber match
+    const iss = si.sid?.issuerAndSerialNumber ?? si.sid;
+    if (iss?.serialNumber) {
+      const target = hex(iss.serialNumber.valueBlock.valueHexView);
+      const found  = certs.find(c => {
+        try { return hex(c.serialNumber.valueBlock.valueHexView) === target; } catch(e) { return false; }
+      });
+      if (found) return found;
+    }
+  } catch(e) {}
+  return certs[0]; // fallback: first cert
+}
+
+function readCert(cert) {
+  if (!cert) return null;
+  function dn(rdn, oid) {
+    try {
+      const a = rdn?.typesAndValues?.find(x => x.type === oid);
+      return a?.value?.valueBlock?.value ?? null;
+    } catch(e) { return null; }
+  }
+  return {
+    cn:        dn(cert.subject, '2.5.4.3'),
+    o:         dn(cert.subject, '2.5.4.10'),
+    ou:        dn(cert.subject, '2.5.4.11'),
+    c:         dn(cert.subject, '2.5.4.6'),
+    email:     dn(cert.subject, '1.2.840.113549.1.9.1'),
+    pid:       dn(cert.subject, '2.5.4.5'),   // personal identifier (TINIT-… in IT certs)
+    issuerCN:  dn(cert.issuer,  '2.5.4.3'),
+    issuerO:   dn(cert.issuer,  '2.5.4.10'),
+    validFrom: safeDate(cert.notBefore?.value),
+    validTo:   safeDate(cert.notAfter?.value),
+    serialHex: readSerial(cert),
+    keyDisplay:readKey(cert),
+  };
+}
+
+function readSerial(cert) {
+  try {
+    return Array.from(cert.serialNumber.valueBlock.valueHexView)
+      .map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(':');
+  } catch(e) { return null; }
+}
+
+function readKey(cert) {
+  try {
+    const algoId = cert.subjectPublicKeyInfo?.algorithm?.algorithmId;
+    if (!algoId) return null;
+
+    if (algoId === '1.2.840.113549.1.1.1') {
+      // RSA: derive bit length from modulus
+      try {
+        const spk = cert.subjectPublicKeyInfo.subjectPublicKey;
+        const raw = spk.valueBlock.valueHexView;
+        const p   = asn1js.fromBER(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+        if (p.offset !== -1) {
+          const mod = p.result?.valueBlock?.value?.[0]?.valueBlock?.valueHexView;
+          if (mod) {
+            const bits = (mod.byteLength - (mod[0] === 0 ? 1 : 0)) * 8;
+            return `RSA-${bits}`;
+          }
+        }
+      } catch(e) {}
+      return 'RSA';
+    }
+
+    if (algoId === '1.2.840.10045.2.1') {
+      // EC: find curve OID from algorithm params
+      try {
+        const curveOid = cert.subjectPublicKeyInfo?.algorithm?.algorithmParams?.valueBlock?.value;
+        if (typeof curveOid === 'string') {
+          const name = OID[curveOid] ?? curveOid;
+          const bits = EC_BITS[curveOid];
+          return bits ? `EC ${name} (${bits}-bit)` : `EC ${name}`;
+        }
+      } catch(e) {}
+      return 'EC';
+    }
+
+    return oidName(algoId);
+  } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CORE EXTRACTION (content bytes)
+// ═══════════════════════════════════════════════════════════
+function extract(buffer) {
+  const e = t.err;
+  try {
+    const a = asn1js.fromBER(buffer);
+    if (a.offset === -1) return { error: e.asnFail };
+
+    let ci;
+    try { ci = new ContentInfo({ schema: a.result }); }
+    catch(ex) { return { error: e.notCI(ex.message) }; }
+
+    if (ci.contentType !== '1.2.840.113549.1.7.2') return { error: e.wrongType(ci.contentType) };
+
+    let sd;
+    try { sd = new SignedData({ schema: ci.content }); }
+    catch(ex) { return { error: e.sdFail(ex.message) }; }
+
+    const eci = sd.encapContentInfo;
+    if (!eci) return { error: e.noECI };
+
+    const contentType = eci.eContentType;
+    const ec = eci.eContent;
+    if (!ec) return { error: e.detached };
+
+    let cb;
+    try {
+      if (typeof ec.getValue === 'function') {
+        const v = ec.getValue();
+        if (v instanceof ArrayBuffer) {
+          cb = v;
+        } else if (typeof v === 'string') {
+          const ab = new ArrayBuffer(v.length), u = new Uint8Array(ab);
+          for (let i=0; i<v.length; i++) u[i] = v.charCodeAt(i) & 0xff;
+          cb = ab;
+        } else { cb = v; }
+      } else {
+        const vhv = ec.valueBlock?.valueHexView;
+        cb = vhv
+          ? vhv.buffer.slice(vhv.byteOffset, vhv.byteOffset + vhv.byteLength)
+          : ec.valueBlock?.valueHex;
+      }
+    } catch(ex) {
+      try { cb = ec.valueBlock?.valueHex; }
+      catch(ex2) { return { error: e.exFail(ex.message) }; }
+    }
+
+    if (!cb || cb.byteLength === 0) return { error: e.empty };
+
+    let details = null;
+    try { details = extractDetails(sd); } catch(ex) { /* non-fatal */ }
+
+    return { contentBuffer: cb, contentType, details };
+  } catch(ex) {
+    return { error: e.unex(ex.message || String(ex)) };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function origName(n) { return n.toLowerCase().endsWith('.p7m') ? n.slice(0,-4) : n+'.bin'; }
+function fmt(b) {
+  if (b < 1024)    return b+' B';
+  if (b < 1048576) return (b/1024).toFixed(1)+' KB';
+  return (b/1048576).toFixed(2)+' MB';
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString(t.locale, {day:'2-digit',month:'2-digit',year:'numeric'}); }
+  catch(e) { return String(d); }
+}
+function fmtDateTime(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleString(t.locale); }
+  catch(e) { return String(d); }
+}
+function safeDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  try { const d = new Date(v); return isNaN(d) ? null : d; } catch(e) { return null; }
+}
+function hex(view) {
+  return Array.from(view).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('');
+}
+function uid() { return '_' + Math.random().toString(36).slice(2,9); }
+function dlFile(b, n) {
+  const u = URL.createObjectURL(b);
+  const a = Object.assign(document.createElement('a'), {href:u, download:n});
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 1000);
+}
+function addLog(type, prefix, msg) {
+  const d = document.createElement('div');
+  d.className = 'll '+type;
+  d.innerHTML = `<span class="lp">${esc(String(prefix))}</span><span class="lm">${esc(String(msg))}</span>`;
+  logEl.appendChild(d);
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "p7m-extractor",
+  "version": "1.0.0",
+  "description": "P7M digital signature extractor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0"
+  },
+  "dependencies": {
+    "asn1js": "^3",
+    "pkijs": "^3"
+  }
+}

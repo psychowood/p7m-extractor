@@ -1,0 +1,6 @@
+node_modules/
+package-lock.json
+_bundle-temp.js
+.DS_Store
+dist/
+*.log
